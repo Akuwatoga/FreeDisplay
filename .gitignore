@@ -4,3 +4,11 @@ build/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 DerivedData/
 .build/
+
+# Local agent tooling
+.codex/
+.claude/
+.autopilot/
+
+# Local diagnostic dumps
+/tmp/fd-*.log
