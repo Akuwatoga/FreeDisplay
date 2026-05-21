@@ -262,7 +262,7 @@ struct MenuBarView: View {
 
         } // end VStack
         .frame(width: 340)
-        .frame(maxHeight: 700)
+        .frame(minHeight: 400, maxHeight: 700)
         .padding(.vertical, 8)
         .onReceive(displayManager.$displays) { newDisplays in
             let validIDs = Set(newDisplays.map { $0.displayID })
