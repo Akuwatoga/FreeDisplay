@@ -83,8 +83,49 @@ final class DDCService: ObservableObject, @unchecked Sendable {
         var result: [CGDirectDisplayID: IOAVServiceRef] = [:]
         var unmatchedServices: [(service: IOAVServiceRef, ioEntry: io_service_t)] = []
 
-        // Strategy 1: IORegistry property matching
-        for entry in workingServices {
+        // Strategy 0 (most reliable): read EDID directly from the monitor over
+        // I2C (address 0x50) and match against CGDisplay{Vendor,Model}Number.
+        // The EDID is what the monitor itself reports — same source CGDisplay
+        // uses — so this matches exactly. Required on macOS 26 (Tahoe) where
+        // IORegistry no longer exposes DisplayVendorID/ProductID near the
+        // DCPAVServiceProxy node, making the older parent-chain strategy fail.
+        #if DEBUG
+        NSLog("[FreeDisplay/DDC] buildAVServiceMap: %d external displays, %d working AVServices",
+              externalIDs.count, workingServices.count)
+        for dispID in externalIDs {
+            NSLog("[FreeDisplay/DDC]   display %u: vendor=0x%04x model=0x%04x",
+                  dispID, CGDisplayVendorNumber(dispID), CGDisplayModelNumber(dispID))
+        }
+        #endif
+
+        var matchedEntryIndices: Set<Int> = []
+        for (idx, entry) in workingServices.enumerated() {
+            guard let edid = readEDIDVendorProduct(avService: entry.service) else {
+                #if DEBUG
+                NSLog("[FreeDisplay/DDC]   AVService[%d]: EDID read FAILED (I2C 0x50 unreachable)", idx)
+                #endif
+                continue
+            }
+            #if DEBUG
+            NSLog("[FreeDisplay/DDC]   AVService[%d]: EDID vendor=0x%04x product=0x%04x",
+                  idx, edid.vendor, edid.product)
+            #endif
+            for dispID in externalIDs where result[dispID] == nil {
+                if CGDisplayVendorNumber(dispID) == edid.vendor
+                    && CGDisplayModelNumber(dispID) == edid.product {
+                    result[dispID] = entry.service
+                    matchedEntryIndices.insert(idx)
+                    #if DEBUG
+                    NSLog("[FreeDisplay/DDC]   → matched AVService[%d] to display %u", idx, dispID)
+                    #endif
+                    break
+                }
+            }
+        }
+
+        // Strategy 1: IORegistry property matching (kept as a secondary path for
+        // older macOS where it does work; on macOS 26 it returns nothing).
+        for (idx, entry) in workingServices.enumerated() where !matchedEntryIndices.contains(idx) {
             guard let matched = matchAVServiceToDisplay(
                 ioEntry: entry.ioEntry,
                 candidates: externalIDs,
@@ -94,9 +135,6 @@ final class DDCService: ObservableObject, @unchecked Sendable {
                 continue
             }
             result[matched] = entry.service
-            #if DEBUG
-            print("[DDCService] ARM64: IORegistry matched AVService to display \(matched) (vendor/product)")
-            #endif
         }
 
         // Strategy 2: Index fallback for any remaining unmatched services/displays
@@ -180,6 +218,27 @@ final class DDCService: ObservableObject, @unchecked Sendable {
         return nil
     }
 
+    /// Read EDID block 0 from the monitor via I2C address 0x50 and extract
+    /// the vendor PNP ID and product code. The values returned match
+    /// CGDisplayVendorNumber / CGDisplayModelNumber exactly (both ultimately
+    /// come from the same EDID), so this is the canonical way to pair an
+    /// IOAVService with a CGDirectDisplayID.
+    ///
+    /// EDID byte layout (relevant fields):
+    ///   - 0…7   : fixed header 00 FF FF FF FF FF FF 00
+    ///   - 8…9   : Manufacturer ID (big-endian, three 5-bit letters)
+    ///   - 10…11 : Product code (little-endian UInt16)
+    private func readEDIDVendorProduct(avService: IOAVServiceRef) -> (vendor: UInt32, product: UInt32)? {
+        var buf = [UInt8](repeating: 0, count: 128)
+        let kr = IOAVServiceReadI2C(avService, 0x50, 0x00, &buf, 128)
+        guard kr == kIOReturnSuccess else { return nil }
+        let header: [UInt8] = [0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00]
+        guard Array(buf[0..<8]) == header else { return nil }
+        let vendor = (UInt32(buf[8]) << 8) | UInt32(buf[9])
+        let product = UInt32(buf[10]) | (UInt32(buf[11]) << 8)
+        return (vendor, product)
+    }
+
     /// Wraps IORegistryEntryCreateCFProperties to return an optional Unmanaged<CFDictionary>.
     private func ioRegistryEntryProperties(_ entry: io_service_t) -> Unmanaged<CFDictionary>? {
         var props: Unmanaged<CFMutableDictionary>? = nil
@@ -240,13 +299,22 @@ final class DDCService: ObservableObject, @unchecked Sendable {
                 continue
             }
 
-            // Verify the service responds to I2C reads (confirms it's a usable DDC path)
-            var testBuf = [UInt8](repeating: 0, count: 32)
-            let ret = IOAVServiceReadI2C(avService, 0x37, 0x51, &testBuf, 32)
-            if ret == kIOReturnSuccess {
-                // Retain io_service_t so we can walk its parent chain in buildAVServiceMap
+            // Probe the channel by reading the EDID (I2C address 0x50). Every
+            // working external display has an EDID; this is far more reliable
+            // than pinging the DDC/CI address (0x37) since many monitors stay
+            // silent on DDC/CI until they receive a real VCP request first —
+            // that previous design dropped any monitor whose DDC was idle
+            // (observed: LG ULTRAGEAR on this machine was silently excluded).
+            if readEDIDVendorProduct(avService: avService) != nil {
                 IOObjectRetain(service)
                 workingPairs.append((service: avService, ioEntry: service))
+                #if DEBUG
+                NSLog("[FreeDisplay/DDC] findAVService: probe OK via EDID (entry kept)")
+                #endif
+            } else {
+                #if DEBUG
+                NSLog("[FreeDisplay/DDC] findAVService: probe FAILED (no EDID) — entry dropped")
+                #endif
             }
             IOObjectRelease(service)
             service = IOIteratorNext(iterator)
@@ -317,9 +385,11 @@ final class DDCService: ObservableObject, @unchecked Sendable {
         let ret = IOAVServiceWriteI2C(avService, 0x37, 0x51, &buf, UInt32(buf.count))
         #if DEBUG
         if ret == kIOReturnSuccess {
-            print("[DDCService] ARM64 write VCP 0x\(String(command, radix: 16)) = \(value) OK")
+            NSLog("[FreeDisplay/DDC] write display %u VCP 0x%02x = %u OK",
+                  displayID, command, value)
         } else {
-            print("[DDCService] ARM64 write VCP 0x\(String(command, radix: 16)) failed: \(ret)")
+            NSLog("[FreeDisplay/DDC] write display %u VCP 0x%02x = %u FAILED (kIOReturn 0x%x)",
+                  displayID, command, value, UInt32(bitPattern: ret))
         }
         #endif
         return ret == kIOReturnSuccess
