@@ -619,11 +619,15 @@ final class DDCService: ObservableObject, @unchecked Sendable {
 
     /// Asynchronously write a VCP value, retrying up to 3 times.
     /// Invalidates the cache for the written VCP code on success.
+    // Completion is declared @MainActor because callers (e.g. BrightnessService)
+    // pass closures that capture @MainActor-isolated state. Running the
+    // completion on the background ddcQueue trips Swift 6 isolation runtime
+    // checks (EXC_BREAKPOINT) — observed when dragging the brightness slider.
     func writeAsync(
         displayID: CGDirectDisplayID,
         command: UInt8,
         value: UInt16,
-        completion: ((Bool) -> Void)? = nil
+        completion: (@MainActor @Sendable (Bool) -> Void)? = nil
     ) {
         ddcQueue.async {
             for attempt in 0..<3 {
@@ -632,12 +636,20 @@ final class DDCService: ObservableObject, @unchecked Sendable {
                     self.cacheLock.lock()
                     self.vcpCache[displayID]?[command] = nil
                     self.cacheLock.unlock()
-                    completion?(true)
+                    if let completion {
+                        DispatchQueue.main.async {
+                            MainActor.assumeIsolated { completion(true) }
+                        }
+                    }
                     return
                 }
                 if attempt < 2 { Thread.sleep(forTimeInterval: 0.05) }
             }
-            completion?(false)
+            if let completion {
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { completion(false) }
+                }
+            }
         }
     }
 
