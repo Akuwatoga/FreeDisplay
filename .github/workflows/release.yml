@@ -1,0 +1,174 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Override ref name (used in DMG filename); leave blank for HEAD short SHA'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode (latest stable)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Compute build identifiers from ref
+        id: ver
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            REF="${{ github.ref_name }}"
+          elif [[ -n "${{ github.event.inputs.tag_name }}" ]]; then
+            REF="${{ github.event.inputs.tag_name }}"
+          else
+            REF="dev-$(git rev-parse --short HEAD)"
+          fi
+          # strip leading "v" for the marketing version (1.0.1-tahoe.1, not v1.0.1-tahoe.1)
+          VERSION="${REF#v}"
+          # CFBundleVersion must be a dotted-numeric string; derive from commit count
+          BUILD=$(git rev-list --count HEAD)
+          echo "ref=$REF"            >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"    >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD"        >> "$GITHUB_OUTPUT"
+          echo "Will build ref=$REF version=$VERSION build=$BUILD"
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive (Release, ad-hoc signed, no team)
+        run: |
+          set -euxo pipefail
+          xcodebuild \
+            -scheme FreeDisplay \
+            -configuration Release \
+            -archivePath build/FreeDisplay.xcarchive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            MARKETING_VERSION="${{ steps.ver.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.ver.outputs.build }}" \
+            archive
+          test -d build/FreeDisplay.xcarchive
+
+      - name: Export .app
+        run: |
+          set -euxo pipefail
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/FreeDisplay.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist
+          test -d build/export/FreeDisplay.app
+
+      - name: Deep ad-hoc re-sign every nested binary
+        # An incomplete signature (any nested dylib/framework unsigned or with
+        # a stale signature) is one of the most common causes of macOS showing
+        # "the application is damaged" on first launch. A deep ad-hoc resign
+        # guarantees every embedded Mach-O is signed with the same identity.
+        run: |
+          set -euxo pipefail
+          codesign --force --deep --sign - \
+            --options runtime \
+            --entitlements FreeDisplay/FreeDisplay.entitlements \
+            build/export/FreeDisplay.app
+          codesign --verify --deep --strict --verbose=2 build/export/FreeDisplay.app
+          codesign -dvv build/export/FreeDisplay.app
+
+      - name: Build DMG (drag-to-Applications layout)
+        run: |
+          set -euxo pipefail
+          STAGING=build/dmg-staging
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          cp -R build/export/FreeDisplay.app "$STAGING/"
+          # Symlink so users see /Applications in the DMG window for drag-install
+          ln -s /Applications "$STAGING/Applications"
+
+          DMG_PATH="build/FreeDisplay-${{ steps.ver.outputs.ref }}.dmg"
+          hdiutil create \
+            -volname "FreeDisplay" \
+            -srcfolder "$STAGING" \
+            -ov -format UDZO \
+            "$DMG_PATH"
+
+          # Sign the DMG container itself so its own integrity is verifiable
+          codesign --sign - "$DMG_PATH"
+          codesign --verify --verbose=2 "$DMG_PATH"
+          ls -lah "$DMG_PATH"
+          echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"
+
+      - name: Upload DMG as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeDisplay-${{ steps.ver.outputs.ref }}
+          path: ${{ env.DMG_PATH }}
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.DMG_PATH }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            ## ⚠️ First Launch — Read This First
+
+            This release is **ad-hoc signed** (not notarized by Apple, because
+            notarization requires a paid Developer ID). On first launch macOS
+            Gatekeeper will likely refuse to open the app with one of:
+
+            - **"FreeDisplay" is damaged and can't be opened. You should move it to the Trash.**
+            - **"FreeDisplay" can't be opened because Apple cannot check it for malicious software.**
+
+            **Neither message is real damage** — both are Gatekeeper warnings
+            against unsigned/un-notarized apps. Pick one of the two fixes:
+
+            **Option A (recommended, one terminal command):**
+            ```bash
+            sudo xattr -rd com.apple.quarantine /Applications/FreeDisplay.app
+            ```
+            Then double-click FreeDisplay to launch.
+
+            **Option B (GUI):**
+            System Settings → Privacy & Security → scroll down to the
+            "FreeDisplay was blocked…" message → click **Open Anyway**.
+
+            After this one-time approval the app launches normally forever.
+
+            ---
+
+            ## Installation
+
+            1. Download `FreeDisplay-${{ steps.ver.outputs.ref }}.dmg` below
+            2. Open the DMG, drag **FreeDisplay.app** into **Applications**
+            3. Apply one of the fixes above
+            4. Click the display icon in your menu bar to use FreeDisplay
+
+            ## Documentation
+
+            - [English README](https://github.com/Akuwatoga/FreeDisplay/blob/main/README.md)
+            - [简体中文 README](https://github.com/Akuwatoga/FreeDisplay/blob/main/README.zh-CN.md)
+
+            ---
