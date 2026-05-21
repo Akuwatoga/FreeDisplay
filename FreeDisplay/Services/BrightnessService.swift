@@ -180,14 +180,12 @@ final class BrightnessService: @unchecked Sendable {
                     self.ddcMaxBrightness[displayID] = result.max
                     self.ddcAvailableLock.unlock()
                     Task { @MainActor in display.brightness = brightness }
-                } else {
-                    // DDC read returned nil; mark unavailable
-                    self.ddcAvailableLock.lock()
-                    if self.ddcAvailable[displayID] == nil {
-                        self.ddcAvailable[displayID] = false
-                    }
-                    self.ddcAvailableLock.unlock()
                 }
+                // DDC read failure is intentionally not treated as a write
+                // failure: many monitors (e.g. LG ULTRAGEAR) accept VCP writes
+                // but never respond to VCP reads. Leaving ddcAvailable as nil
+                // lets the next setBrightness attempt the write — only a real
+                // write failure should downgrade to software (gamma) mode.
             }
         }
     }
