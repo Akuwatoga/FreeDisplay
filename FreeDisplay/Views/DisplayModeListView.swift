@@ -90,9 +90,20 @@ struct DisplayModeListView: View {
                         withAnimation(.easeInOut(duration: 0.2)) { showAllModes.toggle() }
                     }) {
                         HStack(spacing: 4) {
-                            Text(showAllModes ? "收起" : "显示全部 \(resolutionGroups.count) 个")
-                                .font(.caption)
-                                .foregroundColor(.accentColor)
+                            // Split into two distinct Text views so each branch
+                            // is a clean LocalizedStringKey literal. The "显示全部 N 个"
+                            // form needs interpolation, which only works when the
+                            // string is a literal — not when wrapped via the
+                            // LocalizedStringKey(String) initializer.
+                            Group {
+                                if showAllModes {
+                                    Text("收起")
+                                } else {
+                                    Text("显示全部 \(resolutionGroups.count) 个")
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundColor(.accentColor)
                             Image(systemName: showAllModes ? "chevron.up" : "chevron.down")
                                 .font(.caption2)
                                 .foregroundColor(.accentColor)
@@ -110,7 +121,7 @@ struct DisplayModeListView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.caption2)
                         .foregroundColor(.red)
-                    Text(msg)
+                    Text(LocalizedStringKey(msg))
                         .font(.caption2)
                         .foregroundColor(.red)
                     Spacer()

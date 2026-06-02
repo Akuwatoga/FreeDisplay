@@ -55,7 +55,7 @@ struct HiDPIRowView: View {
                 Button("确定") { errorMessage = nil }
             } message: {
                 if let msg = errorMessage {
-                    Text(msg)
+                    Text(LocalizedStringKey(msg))
                 }
             }
         }

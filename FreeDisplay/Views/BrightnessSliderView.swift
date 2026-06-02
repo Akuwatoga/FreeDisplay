@@ -28,7 +28,7 @@ struct BrightnessSliderView: View {
                         .fill(status ? Color.green : Color.orange)
                         .frame(width: 5, height: 5)
                         .accessibilityHidden(true)
-                    Text(status ? "DDC" : "软件")
+                    Text(LocalizedStringKey(status ? "DDC" : "软件"))
                         .font(.caption2)
                         .foregroundColor(status ? .green : .orange)
                 }

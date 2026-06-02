@@ -32,7 +32,7 @@ struct ArrangementView: View {
 
             // Drag error feedback
             if let err = dragError {
-                Text(err)
+                Text(LocalizedStringKey(err))
                     .font(.caption2)
                     .foregroundColor(.red)
                     .padding(.horizontal, 4)

@@ -44,7 +44,7 @@ struct ColorProfileView: View {
                     .padding(.vertical, 4)
                 }
                 if let error = applyError {
-                    Text(error)
+                    Text(LocalizedStringKey(error))
                         .font(.caption)
                         .foregroundColor(.red)
                         .padding(.horizontal, 12)
@@ -145,7 +145,8 @@ struct ColorProfileView: View {
 // MARK: - Sub-views
 
 private struct SectionBadge: View {
-    let title: String
+    // LocalizedStringKey so literal-string callers go through the catalog.
+    let title: LocalizedStringKey
 
     var body: some View {
         Text(title)

@@ -18,7 +18,7 @@ struct AutoBrightnessView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("自动亮度")
                         .font(.body)
-                    Text(statusText)
+                    Text(LocalizedStringKey(statusText))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

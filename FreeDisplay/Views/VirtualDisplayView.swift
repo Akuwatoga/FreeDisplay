@@ -31,7 +31,7 @@ struct VirtualDisplayView: View {
                 HStack {
                     Image(systemName: showCreateForm ? "minus.circle.fill" : "plus.circle.fill")
                         .foregroundColor(.accentColor)
-                    Text(showCreateForm ? "取消" : "创建虚拟显示器")
+                    Text(LocalizedStringKey(showCreateForm ? "取消" : "创建虚拟显示器"))
                         .font(.body)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -42,7 +42,7 @@ struct VirtualDisplayView: View {
             .help("创建新的虚拟显示器")
 
             if let err = createError {
-                Text(err)
+                Text(LocalizedStringKey(err))
                     .font(.caption)
                     .foregroundColor(.red)
                     .padding(.horizontal, 12)

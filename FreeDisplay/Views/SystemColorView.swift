@@ -81,7 +81,7 @@ struct SystemColorView: View {
             Button(action: vm.startSampling) {
                 HStack {
                     Image(systemName: vm.isSampling ? "eyedropper.halffull" : "eyedropper")
-                    Text(vm.isSampling ? "点击屏幕任意位置取色…" : "从屏幕取色")
+                    Text(LocalizedStringKey(vm.isSampling ? "点击屏幕任意位置取色…" : "从屏幕取色"))
                 }
                 .frame(maxWidth: .infinity)
             }

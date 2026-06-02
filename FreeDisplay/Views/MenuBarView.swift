@@ -21,7 +21,11 @@ struct MenuItemIcon: View {
 struct ExpandableRow: View {
     let icon: String
     var iconColor: Color = .blue
-    let label: String
+    // LocalizedStringKey so callers passing a string literal (the common case)
+    // still get SwiftUI's automatic LocalizedStringKey lookup against the
+    // string catalog. Without this the label would render verbatim and skip
+    // localization, leaving the menu row in its source language.
+    let label: LocalizedStringKey
     var subtitle: String? = nil
     @Binding var isExpanded: Bool
     @State private var isHovered = false

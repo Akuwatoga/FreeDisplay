@@ -13,7 +13,7 @@ struct SavePresetView: View {
                 HStack {
                     Image(systemName: isShowingSaveForm ? "minus.circle.fill" : "plus.circle.fill")
                         .foregroundColor(.accentColor)
-                    Text(isShowingSaveForm ? "取消" : "保存为预设")
+                    Text(LocalizedStringKey(isShowingSaveForm ? "取消" : "保存为预设"))
                         .font(.body)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,7 +93,7 @@ struct SavePresetForm: View {
 
             // Error message
             if let err = saveError {
-                Text(err)
+                Text(LocalizedStringKey(err))
                     .font(.caption)
                     .foregroundColor(.red)
             }
@@ -106,7 +106,7 @@ struct SavePresetForm: View {
                             .scaleEffect(0.7)
                             .frame(width: 14, height: 14)
                     }
-                    Text(isSaving ? "保存中..." : "保存")
+                    Text(LocalizedStringKey(isSaving ? "保存中..." : "保存"))
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -156,7 +156,11 @@ struct IconOptionButton: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
-        .help(label)
-        .accessibilityLabel(label)
+        // Wrap with LocalizedStringKey so the tooltip and accessibility label
+        // honour the in-app language picker (option.label is a String from a
+        // data model, so the .help(_ key: LocalizedStringKey) overload isn't
+        // picked automatically).
+        .help(LocalizedStringKey(label))
+        .accessibilityLabel(LocalizedStringKey(label))
     }
 }

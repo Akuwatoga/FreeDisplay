@@ -49,7 +49,7 @@ struct MainDisplayView: View {
             }
 
             if let msg = errorMessage {
-                Text(msg)
+                Text(LocalizedStringKey(msg))
                     .font(.caption)
                     .foregroundColor(.red)
                     .padding(.horizontal, 12)

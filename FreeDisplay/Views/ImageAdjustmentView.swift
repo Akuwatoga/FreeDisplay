@@ -77,7 +77,7 @@ struct ImageAdjustmentView: View {
                 .help("反转显示器色彩（类似夜间模式）")
 
                 actionButton(
-                    title: isPaused ? "继续调整" : "暂停调整",
+                    title: isPaused ? LocalizedStringKey("继续调整") : LocalizedStringKey("暂停调整"),
                     systemImage: isPaused ? "play.circle" : "pause.circle",
                     isActive: isPaused
                 ) {
@@ -183,7 +183,7 @@ struct ImageAdjustmentView: View {
     // MARK: - Action button builder
 
     private func actionButton(
-        title: String,
+        title: LocalizedStringKey,
         systemImage: String,
         isActive: Bool,
         action: @escaping () -> Void
@@ -237,6 +237,9 @@ struct ImageAdjustmentView: View {
 
 private struct AdjustRow: View {
     let icon: String
+    // Kept as String because callers pass dynamic values (per-channel labels
+    // computed from outer state). We wrap with LocalizedStringKey(label) at
+    // the Text site below so SwiftUI still looks them up in the catalog.
     let label: String
     @Binding var value: Double
     let accent: Color
@@ -256,7 +259,7 @@ private struct AdjustRow: View {
                 .frame(width: 18)
                 .font(.caption)
 
-            Text(label)
+            Text(LocalizedStringKey(label))
                 .font(.caption)
                 .frame(width: 72, alignment: .leading)
 
