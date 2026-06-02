@@ -192,30 +192,85 @@ jobs:
           cat build/release-body.md
           echo "----- end preview -----"
 
-      - name: Publish release via gh CLI (delete-then-create for guaranteed body refresh)
+      - name: Publish release via GitHub API (delete-then-create for guaranteed body refresh)
         # softprops/action-gh-release@v2 silently keeps the body of an already-
         # existing release when run in update mode (observed: re-pushed
-        # v1.0.4-tahoe.1 still showed the v1.0.3 body). gh CLI gives us an
-        # explicit delete-recreate cycle so every push of a tag yields the
-        # exact body from our generated markdown file. The tag itself is
-        # preserved (--cleanup-tag=false).
+        # v1.0.4-tahoe.1 still showed the v1.0.3 body). Use the REST API
+        # directly so every tag push recreates the release body and asset while
+        # preserving the tag.
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          REPO="${{ github.repository }}"
-          TAG="${{ github.ref_name }}"
-          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-            echo "Existing release for $TAG found — deleting (tag preserved)…"
-            # NOTE: gh release delete's --cleanup-tag is a pure boolean flag;
-            # passing `--cleanup-tag=false` is a syntax error. Omitting it
-            # keeps the tag, which is what we want.
-            gh release delete "$TAG" --repo "$REPO" --yes
-          fi
-          echo "Creating release $TAG…"
-          gh release create "$TAG" "$DMG_PATH" \
-            --repo "$REPO" \
-            --title "$TAG" \
-            --notes-file build/release-body.md \
-            --verify-tag
+          python3 <<'PY'
+          import json
+          import mimetypes
+          import os
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          tag = os.environ["GITHUB_REF_NAME"]
+          token = os.environ["GH_TOKEN"]
+          dmg_path = os.environ["DMG_PATH"]
+
+          with open("build/release-body.md", "r", encoding="utf-8") as handle:
+            body = handle.read()
+
+          api = f"https://api.github.com/repos/{repo}"
+          headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          def request(method, url, payload=None, content_type="application/json"):
+            data = None
+            request_headers = dict(headers)
+            if payload is not None:
+              if isinstance(payload, bytes):
+                data = payload
+              else:
+                data = json.dumps(payload).encode("utf-8")
+              request_headers["Content-Type"] = content_type
+
+            req = urllib.request.Request(url, data=data, headers=request_headers, method=method)
+            try:
+              with urllib.request.urlopen(req) as response:
+                raw = response.read()
+                if not raw:
+                  return None
+                return json.loads(raw.decode("utf-8"))
+            except urllib.error.HTTPError as error:
+              raw = error.read().decode("utf-8", errors="replace")
+              if error.code == 404:
+                return {"_not_found": True}
+              print(raw, file=sys.stderr)
+              raise
+
+          existing = request("GET", f"{api}/releases/tags/{urllib.parse.quote(tag, safe='')}")
+          if existing and not existing.get("_not_found"):
+            print(f"Existing release for {tag} found; deleting release while preserving tag.")
+            request("DELETE", f"{api}/releases/{existing['id']}")
+
+          print(f"Creating release {tag}.")
+          release = request("POST", f"{api}/releases", {
+            "tag_name": tag,
+            "name": tag,
+            "body": body,
+            "draft": False,
+            "prerelease": False,
+          })
+
+          asset_name = os.path.basename(dmg_path)
+          content_type = mimetypes.guess_type(dmg_path)[0] or "application/octet-stream"
+          upload_url = release["upload_url"].split("{", 1)[0]
+          upload_url = f"{upload_url}?name={urllib.parse.quote(asset_name)}"
+          with open(dmg_path, "rb") as handle:
+            request("POST", upload_url, handle.read(), content_type)
+
+          print(f"Published {tag} with asset {asset_name}.")
+          PY
