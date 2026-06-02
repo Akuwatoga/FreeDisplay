@@ -138,7 +138,7 @@ jobs:
           # silently drop the section when fed via `body:` in softprops/action.
           TAGMSG=$(git for-each-ref "refs/tags/${{ github.ref_name }}" \
             --format='%(contents:subject)%0a%0a%(contents:body)' \
-            | /usr/bin/sed -e '/^-----BEGIN PGP SIGNATURE-----$/,$d')
+            | sed -e '/^-----BEGIN PGP SIGNATURE-----$/,$d')
           if [[ -z "$(printf '%s' "$TAGMSG" | tr -d '[:space:]')" ]]; then
             TAGMSG="Tag ${{ github.ref_name }} — see commit history for details."
           fi
@@ -189,7 +189,7 @@ jobs:
           MARKDOWN
 
           echo "----- release body preview -----"
-          /usr/bin/cat build/release-body.md
+          cat build/release-body.md
           echo "----- end preview -----"
 
       - name: Create GitHub Release
