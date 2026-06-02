@@ -208,7 +208,10 @@ jobs:
           TAG="${{ github.ref_name }}"
           if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
             echo "Existing release for $TAG found — deleting (tag preserved)…"
-            gh release delete "$TAG" --repo "$REPO" --yes --cleanup-tag=false
+            # NOTE: gh release delete's --cleanup-tag is a pure boolean flag;
+            # passing `--cleanup-tag=false` is a syntax error. Omitting it
+            # keeps the tag, which is what we want.
+            gh release delete "$TAG" --repo "$REPO" --yes
           fi
           echo "Creating release $TAG…"
           gh release create "$TAG" "$DMG_PATH" \
