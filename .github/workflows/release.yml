@@ -129,80 +129,77 @@ jobs:
           path: ${{ env.DMG_PATH }}
           if-no-files-found: error
 
-      - name: Extract tag annotation as "What's new" section
-        id: tagnotes
+      - name: Build release body file
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          # Pull the contents of the annotated tag message (subject + body)
-          # without the trailing PGP signature, if any.
-          MSG=$(git for-each-ref "refs/tags/${{ github.ref_name }}" \
+          # Extract the annotated-tag message (subject + body), stripping any
+          # PGP signature block. Writing to a file (rather than a multi-line
+          # job output) avoids the YAML/templating escape pitfalls that
+          # silently drop the section when fed via `body:` in softprops/action.
+          TAGMSG=$(git for-each-ref "refs/tags/${{ github.ref_name }}" \
             --format='%(contents:subject)%0a%0a%(contents:body)' \
             | /usr/bin/sed -e '/^-----BEGIN PGP SIGNATURE-----$/,$d')
-          # Fallback if the tag is lightweight (no annotation).
-          if [[ -z "$(printf '%s' "$MSG" | tr -d '[:space:]')" ]]; then
-            MSG="Tag ${{ github.ref_name }} — see commit history for details."
+          if [[ -z "$(printf '%s' "$TAGMSG" | tr -d '[:space:]')" ]]; then
+            TAGMSG="Tag ${{ github.ref_name }} — see commit history for details."
           fi
-          {
-            echo "notes<<NOTES_EOF"
-            echo "$MSG"
-            echo "NOTES_EOF"
-          } >> "$GITHUB_OUTPUT"
-          # Echo for debugging in CI logs
-          printf '%s\n' "----- release notes preview -----"
-          printf '%s\n' "$MSG"
-          printf '%s\n' "---------------------------------"
+          cat > build/release-body.md <<MARKDOWN
+          ## What's new in ${{ github.ref_name }}
+
+          $TAGMSG
+
+          ---
+
+          ## ⚠️ First Launch — Read This First
+
+          This release is **ad-hoc signed** (not notarized by Apple, because
+          notarization requires a paid Developer ID). On first launch macOS
+          Gatekeeper will likely refuse to open the app with one of:
+
+          - **"FreeDisplay" is damaged and can't be opened. You should move it to the Trash.**
+          - **"FreeDisplay" can't be opened because Apple cannot check it for malicious software.**
+
+          **Neither message is real damage** — both are Gatekeeper warnings
+          against unsigned/un-notarized apps. Pick one of the two fixes:
+
+          **Option A (recommended, one terminal command):**
+          \`\`\`bash
+          sudo xattr -rd com.apple.quarantine /Applications/FreeDisplay.app
+          \`\`\`
+          Then double-click FreeDisplay to launch.
+
+          **Option B (GUI):**
+          System Settings → Privacy & Security → scroll down to the
+          "FreeDisplay was blocked…" message → click **Open Anyway**.
+
+          After this one-time approval the app launches normally forever.
+
+          ---
+
+          ## Installation
+
+          1. Download \`FreeDisplay-${{ steps.ver.outputs.ref }}.dmg\` below
+          2. Open the DMG, drag **FreeDisplay.app** into **Applications**
+          3. Apply one of the fixes above
+          4. Click the display icon in your menu bar to use FreeDisplay
+
+          ## Documentation
+
+          - [English README](https://github.com/Akuwatoga/FreeDisplay/blob/main/README.md)
+          - [简体中文 README](https://github.com/Akuwatoga/FreeDisplay/blob/main/README.zh-CN.md)
+          MARKDOWN
+
+          echo "----- release body preview -----"
+          /usr/bin/cat build/release-body.md
+          echo "----- end preview -----"
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.DMG_PATH }}
+          body_path: build/release-body.md
+          # We provide the full body via body_path; let GitHub still append
+          # the auto-generated "Full Changelog" link below it.
           generate_release_notes: true
+          append_body: true
           fail_on_unmatched_files: true
-          body: |
-            ## What's new in ${{ github.ref_name }}
-
-            ${{ steps.tagnotes.outputs.notes }}
-
-            ---
-
-
-            ## ⚠️ First Launch — Read This First
-
-            This release is **ad-hoc signed** (not notarized by Apple, because
-            notarization requires a paid Developer ID). On first launch macOS
-            Gatekeeper will likely refuse to open the app with one of:
-
-            - **"FreeDisplay" is damaged and can't be opened. You should move it to the Trash.**
-            - **"FreeDisplay" can't be opened because Apple cannot check it for malicious software.**
-
-            **Neither message is real damage** — both are Gatekeeper warnings
-            against unsigned/un-notarized apps. Pick one of the two fixes:
-
-            **Option A (recommended, one terminal command):**
-            ```bash
-            sudo xattr -rd com.apple.quarantine /Applications/FreeDisplay.app
-            ```
-            Then double-click FreeDisplay to launch.
-
-            **Option B (GUI):**
-            System Settings → Privacy & Security → scroll down to the
-            "FreeDisplay was blocked…" message → click **Open Anyway**.
-
-            After this one-time approval the app launches normally forever.
-
-            ---
-
-            ## Installation
-
-            1. Download `FreeDisplay-${{ steps.ver.outputs.ref }}.dmg` below
-            2. Open the DMG, drag **FreeDisplay.app** into **Applications**
-            3. Apply one of the fixes above
-            4. Click the display icon in your menu bar to use FreeDisplay
-
-            ## Documentation
-
-            - [English README](https://github.com/Akuwatoga/FreeDisplay/blob/main/README.md)
-            - [简体中文 README](https://github.com/Akuwatoga/FreeDisplay/blob/main/README.zh-CN.md)
-
-            ---
