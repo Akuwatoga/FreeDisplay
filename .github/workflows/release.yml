@@ -132,6 +132,11 @@ jobs:
       - name: Build release body file
         if: startsWith(github.ref, 'refs/tags/')
         run: |
+          # actions/checkout checks out the tag target commit. On annotated-tag
+          # workflows the local refs/tags/<tag> can therefore resolve like a
+          # lightweight tag unless we explicitly fetch the tag object.
+          git fetch --force origin "refs/tags/${{ github.ref_name }}:refs/tags/${{ github.ref_name }}"
+
           # Extract the annotated-tag message (subject + body), stripping any
           # PGP signature block. Writing to a file (rather than a multi-line
           # job output) avoids the YAML/templating escape pitfalls that
