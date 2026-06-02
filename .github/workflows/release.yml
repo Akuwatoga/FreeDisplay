@@ -19,6 +19,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so we can read annotated tag messages and accurate
+          # commit counts for the build number.
+          fetch-depth: 0
 
       - name: Select Xcode (latest stable)
         uses: maxim-lobanov/setup-xcode@v1
@@ -125,6 +129,29 @@ jobs:
           path: ${{ env.DMG_PATH }}
           if-no-files-found: error
 
+      - name: Extract tag annotation as "What's new" section
+        id: tagnotes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          # Pull the contents of the annotated tag message (subject + body)
+          # without the trailing PGP signature, if any.
+          MSG=$(git for-each-ref "refs/tags/${{ github.ref_name }}" \
+            --format='%(contents:subject)%0a%0a%(contents:body)' \
+            | /usr/bin/sed -e '/^-----BEGIN PGP SIGNATURE-----$/,$d')
+          # Fallback if the tag is lightweight (no annotation).
+          if [[ -z "$(printf '%s' "$MSG" | tr -d '[:space:]')" ]]; then
+            MSG="Tag ${{ github.ref_name }} — see commit history for details."
+          fi
+          {
+            echo "notes<<NOTES_EOF"
+            echo "$MSG"
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+          # Echo for debugging in CI logs
+          printf '%s\n' "----- release notes preview -----"
+          printf '%s\n' "$MSG"
+          printf '%s\n' "---------------------------------"
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -133,6 +160,13 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
+            ## What's new in ${{ github.ref_name }}
+
+            ${{ steps.tagnotes.outputs.notes }}
+
+            ---
+
+
             ## ⚠️ First Launch — Read This First
 
             This release is **ad-hoc signed** (not notarized by Apple, because
