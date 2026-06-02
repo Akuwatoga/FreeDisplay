@@ -31,9 +31,41 @@ final class SettingsService: ObservableObject, @unchecked Sendable {
         static let ddcCacheTTL            = "fd.ddcCacheTTL"
         static let checkUpdatesOnLaunch   = "fd.checkUpdatesOnLaunch"
         static let colorPickerHistory     = "fd.colorPickerHistory"
+        static let preferredLanguage      = "fd.preferredLanguage"
         // Per-display keys use prefix + displayID
         static let brightnessPrefix       = "fd.brightness_"
         static let contrastPrefix         = "fd.contrast_"
+    }
+
+    // MARK: - Language
+
+    /// User-selected UI language. `"system"` means follow the system locale.
+    /// Other values are BCP-47 language tags shipped in the catalog (`"zh-Hans"`, `"en"`).
+    enum PreferredLanguage: String, CaseIterable, Identifiable {
+        case system  = "system"
+        case english = "en"
+        case chinese = "zh-Hans"
+
+        var id: String { rawValue }
+
+        /// Human-readable name shown in the picker, in its own language.
+        var displayName: String {
+            switch self {
+            case .system:  return NSLocalizedString("跟随系统", comment: "")
+            case .english: return "English"
+            case .chinese: return "简体中文"
+            }
+        }
+
+        /// Resolves to a SwiftUI Locale for `.environment(\.locale, ...)`.
+        /// `.system` returns the system's current locale so SwiftUI uses normal resolution.
+        var resolvedLocale: Locale {
+            switch self {
+            case .system:  return .current
+            case .english: return Locale(identifier: "en")
+            case .chinese: return Locale(identifier: "zh-Hans")
+            }
+        }
     }
 
     // MARK: - Published Settings
@@ -68,6 +100,11 @@ final class SettingsService: ObservableObject, @unchecked Sendable {
         didSet {
             defaults.set(colorPickerHistory, forKey: Keys.colorPickerHistory)
         }
+    }
+
+    /// User's preferred UI language (defaults to `.system`).
+    @Published var preferredLanguage: PreferredLanguage = .system {
+        didSet { defaults.set(preferredLanguage.rawValue, forKey: Keys.preferredLanguage) }
     }
 
     // MARK: - Per-Display Settings
@@ -137,5 +174,11 @@ final class SettingsService: ObservableObject, @unchecked Sendable {
         checkUpdatesOnLaunch = defaults.object(forKey: Keys.checkUpdatesOnLaunch) != nil
             ? defaults.bool(forKey: Keys.checkUpdatesOnLaunch) : true
         colorPickerHistory = defaults.stringArray(forKey: Keys.colorPickerHistory) ?? []
+        if let raw = defaults.string(forKey: Keys.preferredLanguage),
+           let lang = PreferredLanguage(rawValue: raw) {
+            preferredLanguage = lang
+        } else {
+            preferredLanguage = .system
+        }
     }
 }

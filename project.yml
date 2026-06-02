@@ -3,6 +3,10 @@ options:
   bundleIdPrefix: com.freedisplay
   deploymentTarget:
     macOS: "14.0"
+  # Source language for Localizable.xcstrings — the literal text in the
+  # Swift sources is in zh-Hans, and the catalog provides English (and
+  # future locales) translations.
+  developmentLanguage: zh-Hans
 
 targets:
   FreeDisplay:
@@ -29,3 +33,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_NSScreenCaptureUsageDescription: "FreeDisplay 需要屏幕录制权限以显示各显示器的实时画面预览。"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Locales the app ships translations for. The Xcode build system
+        # auto-compiles Localizable.xcstrings into .lproj/Localizable.strings
+        # for each region listed here.
+        KNOWN_REGIONS: "en zh-Hans Base"

@@ -48,6 +48,7 @@
 		E061011F318208D7FF94D963 /* CGHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB5BF8AFF876572E97D370A0 /* CGHelpers.swift */; };
 		E201AC4CE5BCEC009C926206 /* ArrangementService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22030BFC8A680A596A5764C9 /* ArrangementService.swift */; };
 		E6D99B12980703693C61A687 /* SettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5483CA367C0673369C00E5A /* SettingsService.swift */; };
+		F17E84B38238640BEBC366AA /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E0CF278C47F118CA2F2DDC62 /* Localizable.xcstrings */; };
 		F9A1FF13C0CAC41003C5B201 /* SavePresetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58474F9C406F992241963112 /* SavePresetView.swift */; };
 		FE0FA160B19EA273B4F766CC /* BrightnessSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D76D8EE5271581552ED081AF /* BrightnessSliderView.swift */; };
 /* End PBXBuildFile section */
@@ -96,6 +97,7 @@
 		D732A8A7009C298C78D6895C /* FreeDisplayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDisplayApp.swift; sourceTree = "<group>"; };
 		D76D8EE5271581552ED081AF /* BrightnessSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrightnessSliderView.swift; sourceTree = "<group>"; };
 		DB5BF8AFF876572E97D370A0 /* CGHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CGHelpers.swift; sourceTree = "<group>"; };
+		E0CF278C47F118CA2F2DDC62 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		E5483CA367C0673369C00E5A /* SettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsService.swift; sourceTree = "<group>"; };
 		F22B3A7EF51E72B078901699 /* ImageAdjustmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAdjustmentView.swift; sourceTree = "<group>"; };
 		F606C5D467CD44404890F6EC /* VirtualDisplayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualDisplayService.swift; sourceTree = "<group>"; };
@@ -191,6 +193,7 @@
 			isa = PBXGroup;
 			children = (
 				AED959D5249F419ADBDBA1F4 /* Assets.xcassets */,
+				E0CF278C47F118CA2F2DDC62 /* Localizable.xcstrings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -254,16 +257,17 @@
 				};
 			};
 			buildConfigurationList = 8EA410054BD32F42B7BB9BC3 /* Build configuration list for PBXProject "FreeDisplay" */;
-			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
 				en,
+				"zh-Hans",
 			);
 			mainGroup = AD8C2B4D7F682DFFA53EF6B7;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 4D2DDE7731949C0697A6167C /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -279,6 +283,7 @@
 			files = (
 				80F888F001C7F53E4FA362AD /* Assets.xcassets in Resources */,
 				7BC8C11889A477C6501E5BC8 /* Assets.xcassets in Resources */,
+				F17E84B38238640BEBC366AA /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -406,6 +411,7 @@
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "FreeDisplay - Free & Open Source";
 				INFOPLIST_KEY_NSScreenCaptureUsageDescription = "FreeDisplay 需要屏幕录制权限以显示各显示器的实时画面预览。";
+				KNOWN_REGIONS = "en zh-Hans Base";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -433,6 +439,7 @@
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "FreeDisplay - Free & Open Source";
 				INFOPLIST_KEY_NSScreenCaptureUsageDescription = "FreeDisplay 需要屏幕录制权限以显示各显示器的实时画面预览。";
+				KNOWN_REGIONS = "en zh-Hans Base";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

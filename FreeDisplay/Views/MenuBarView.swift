@@ -359,6 +359,26 @@ struct SettingsView: View {
             .controlSize(.small)
             .padding(.horizontal, 12)
             .help("每次启动时自动检查是否有新版本可用")
+
+            // 语言切换 (i18n)
+            HStack(spacing: 6) {
+                MenuItemIcon(systemName: "globe", color: .indigo)
+                    .accessibilityHidden(true)
+                Text("语言")
+                    .font(.body)
+                Spacer()
+                Picker("", selection: $settings.preferredLanguage) {
+                    ForEach(SettingsService.PreferredLanguage.allCases) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .controlSize(.small)
+                .frame(maxWidth: 140)
+            }
+            .padding(.horizontal, 12)
+            .help("切换 FreeDisplay 菜单使用的语言")
         }
         .padding(.vertical, 6)
     }

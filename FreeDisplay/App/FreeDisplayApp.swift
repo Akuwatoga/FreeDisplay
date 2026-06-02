@@ -4,11 +4,16 @@ import SwiftUI
 struct FreeDisplayApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var displayManager = DisplayManager()
+    // Observe SettingsService so the menu re-renders when the user changes
+    // language via the Settings picker — SwiftUI's LocalizedStringKey lookups
+    // honour the .environment(\.locale, ...) override we apply below.
+    @ObservedObject private var settings = SettingsService.shared
 
     var body: some Scene {
         MenuBarExtra {
             MenuBarView()
                 .environmentObject(displayManager)
+                .environment(\.locale, settings.preferredLanguage.resolvedLocale)
                 .task {
                     // Enable "external above built-in" arrangement by default on first launch.
                     let defaults = UserDefaults.standard
